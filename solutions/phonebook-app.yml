@@ -10,35 +10,81 @@ Description: |
   environment on EC2, and to deploy Phonebook Application on Flask Server after downloading the app code 
   from Github repository.
 Parameters:
- 
+
+  myVPC:
+    Description: Choose your vpc
+    Type: AWS::EC2::VPC::Id
+
+  myDbname: 
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /clarusway/phonebook/dbname
   
 Resources:
 
-  autoScalingGroup:
+  aLBSecGrp:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow ssh and http # Required
+      GroupName: kodal-web-app-alb-sec-group
+      SecurityGroupIngress: 
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
 
-  applicationLoadBalancerListener:
-    
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      VpcId: !Ref myVPC
 
-  applicationLoadBalancer:
-    
+  eC2SecGrp:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: allow ssh from anywhere and http from ALB # Required
+      GroupName: kodal-web-app-ec2-sec-group
+      SecurityGroupIngress: 
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !GetAtt aLBSecGrp.GroupId  # !Ref aLBSecGrp
 
-  launchTemplate:
-   
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      VpcId: !Ref myVPC
+
+  rDSSecGrp:
+    Type: AWS::RDS::DBSecurityGroup
+    Properties:
+      DBSecurityGroupIngress: # Required
+          EC2SecurityGroupId: !GetAtt eC2SecGrp.GroupId
+      GroupDescription: allow 3306 from ec2secgrp # Required
+      Tags: 
+        - Key: Name
+          Value: kodal-phonebook-app-rds-sec-group
+
+  rDSInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: "20"
+      BackupRetentionPeriod: "0"
+      DBInstanceClass: "db.t3.micro"
+      DBInstanceIdentifier: "kodal-phonebook-rds-instance"
+      DBName: '{{resolve:ssm:/clarusway/phonebook/dbname:1}}'  # !Ref myDbname
+      DBSecurityGroups: 
+        - !Ref rDSSecGrp
+      DeleteAutomatedBackups: true
+      Engine: "mysql"
+      EngineVersion: "8.0.35"
+      MasterUserPassword: '{{resolve:ssm-secure:/clarusway/phonebook/password:1}}'
+      MasterUsername: '{{resolve:ssm:/clarusway/phonebook/username:1}}'
+      PubliclyAccessible: true
+    DeletionPolicy: Delete
 
 
-  targetGroup:
-    
 
-  dBInstance:
-    
 
-  wBSecurityGroup:
-   
-
-  webServerSecurityGroup:
-    
-
-  applicationLoadBalancerSecurityGroup:
-    
-Outputs:
+  
   
